@@ -43,6 +43,7 @@ jobs:
         id: build
         env:
           UPSTREAM_REF: ${{ inputs.upstream_ref }}
+          PACKAGE_VERSION: ${{ inputs.package_version }}
           OUTPUT_DIR: ${{ env.OUTPUT_DIR }}
           BUILD_ENV: ${{ env.BUILD_ENV }}
         run: |

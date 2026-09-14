@@ -20,6 +20,13 @@
 #                       command only (e.g. Vite VITE_* config)
 #   OUTPUT_DIR         "dist"   (relative to the checked-out repo)
 #   OUT                "."      (where to write the artifact + its sha256)
+#   PACKAGE_VERSION    version string used to name the artifact/release.
+#                       Defaults to UPSTREAM_REF with a leading "v" stripped
+#                       — fine for a real tag (v2.37.3 -> 2.37.3), but for an
+#                       upstream that pins a bare commit hash (no tags), set
+#                       this explicitly so the artifact isn't named after the
+#                       hash (e.g. PACKAGE_VERSION=0.59.2 while UPSTREAM_REF
+#                       stays the pinned commit).
 set -euo pipefail
 
 : "${UPSTREAM_REPO:?set UPSTREAM_REPO}"
@@ -62,7 +69,7 @@ fi
 
 popd >/dev/null
 
-version="${UPSTREAM_REF#v}"
+version="${PACKAGE_VERSION:-${UPSTREAM_REF#v}}"
 artifact="${PACKAGE_ID}-v${version}.tar.gz"
 
 echo "==> Packaging ${artifact}"

@@ -37,7 +37,13 @@ workdir="$(mktemp -d)"
 trap 'rm -rf "$workdir"' EXIT
 
 echo "==> Cloning ${UPSTREAM_REPO}@${UPSTREAM_REF}"
-git clone --quiet --depth 1 --branch "$UPSTREAM_REF" "$UPSTREAM_REPO" "$workdir/src"
+# UPSTREAM_REF may be a tag or a bare commit hash (some upstreams don't tag
+# releases). `--branch` only accepts a ref name, not an arbitrary commit, so
+# try the fast path first and fall back to a full clone + checkout.
+if ! git clone --quiet --depth 1 --branch "$UPSTREAM_REF" "$UPSTREAM_REPO" "$workdir/src" 2>/dev/null; then
+    git clone --quiet "$UPSTREAM_REPO" "$workdir/src"
+    git -C "$workdir/src" checkout --quiet "$UPSTREAM_REF"
+fi
 
 pushd "$workdir/src" >/dev/null
 

@@ -25,10 +25,13 @@ This repo is the reusable shape for producing and maintaining that artifact:
 | [`build.sh`](build.sh) | Clones the pinned upstream ref, builds it with a pinned toolchain, tars the output, prints its SHA-256. |
 | [`.github/workflows/build.yml`](.github/workflows/build.yml) | Manual (`workflow_dispatch`) — runs `build.sh` and publishes the tarball as a GitHub Release asset. |
 | [`.github/workflows/security.yml`](.github/workflows/security.yml) | Validates `package.toml` against the native schema, verifies the pinned artifact's hash, and runs the same static scans (Gitleaks, Trivy, actionlint, ShellCheck) as [nostr-yunohost](https://github.com/imattau/nostr-yunohost)'s `_ynh`-oriented `static-security.yml`. |
+| [`AGENTS.md`](AGENTS.md) | The same walkthrough as `docs/new-package.md`, written for a coding agent working in a repo built from this template — leads with the hard execution boundary, ends with an explicit "don't" list. |
 
 ## Using this template for a new app
 
-See [docs/new-package.md](docs/new-package.md) for the full checklist. Short version:
+An AI coding agent working in a repo built from this template should read
+[`AGENTS.md`](AGENTS.md) first. For a human, see
+[docs/new-package.md](docs/new-package.md) for the full checklist. Short version:
 
 1. Use this repo as a GitHub template (or copy it) into `<app>_nh`.
 2. Fill in every `TODO` in `package.toml` and `.github/workflows/build.yml`

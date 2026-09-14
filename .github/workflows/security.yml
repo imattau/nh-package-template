@@ -1,0 +1,164 @@
+name: Package security checks (_nh)
+
+# Native-package equivalent of imattau/nostr-yunohost's reusable
+# static-security.yml. That workflow validates classic manifest.toml _ynh
+# packages via `nostr-ynh publish --dry-run` and YunoHost's package_linter —
+# neither understands the scriptless package.toml (_nh) format, so this
+# workflow replaces those two checks with the native
+# `nostrhost-package validate|plan` CLI (from imattau/nostrhost-yunohost)
+# and adds a check the source workflow has no equivalent for: verifying the
+# artifact pinned in package.toml's [source.main] still hashes to the
+# declared sha256. The remaining checks (Gitleaks, Trivy, actionlint,
+# ShellCheck) are format-agnostic and kept as-is.
+#
+# Like the source workflow, this never executes anything app-specific beyond
+# reading package.toml and build.sh — no lifecycle scripts exist to run in
+# this format.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      nostrhost-yunohost-version:
+        description: imattau/nostrhost-yunohost branch/tag/commit to validate against
+        required: false
+        type: string
+        default: nostrhost
+
+permissions:
+  contents: read
+
+jobs:
+  native-validate:
+    name: Validate package.toml
+    runs-on: ubuntu-latest
+    outputs:
+      result: ${{ steps.summarize.outputs.result }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pin this once nostrhost-yunohost cuts releases; the "nostrhost"
+      # branch is its active development branch and has no version tags yet
+      # (mirrors nostr-yunohost's own static-security.yml default).
+      - name: Check out nostrhost-package CLI
+        uses: actions/checkout@v4
+        with:
+          repository: imattau/nostrhost-yunohost
+          ref: ${{ inputs.nostrhost-yunohost-version || 'nostrhost' }}
+          path: .nostrhost-yunohost
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CLI dependencies (pinned to Debian 12 / Bookworm versions)
+        run: python -m pip install "typer==0.7.0" "click==8.1.7" "pydantic==1.10.14" "PyYAML==6.0.2"
+
+      - name: nostrhost-package validate
+        id: validate
+        continue-on-error: true
+        env:
+          PYTHONPATH: .nostrhost-yunohost/src
+        run: python -m nostrhost.package_authoring validate package.toml --json | tee validate.json
+
+      - name: nostrhost-package plan
+        id: plan
+        if: steps.validate.outcome == 'success'
+        continue-on-error: true
+        env:
+          PYTHONPATH: .nostrhost-yunohost/src
+        run: python -m nostrhost.package_authoring plan package.toml --json | tee plan.json
+
+      - name: Artifact hash verification
+        id: hash
+        if: always()
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 - <<'PYEOF'
+          import sys, tomllib
+          with open("package.toml", "rb") as fh:
+              data = tomllib.load(fh)
+          source = data.get("source", {}).get("main")
+          if not source or not source.get("url") or not source.get("sha256"):
+              print("no [source.main] url/sha256 declared yet (template not filled in)")
+              sys.exit(1)
+          print(f"url={source['url']}")
+          print(f"sha256={source['sha256']}")
+          PYEOF
+          url="$(python3 -c 'import tomllib; print(tomllib.load(open("package.toml","rb"))["source"]["main"]["url"])')"
+          expected="$(python3 -c 'import tomllib; print(tomllib.load(open("package.toml","rb"))["source"]["main"]["sha256"])')"
+          curl -fsSL "$url" -o artifact.download
+          actual="$(sha256sum artifact.download | cut -d' ' -f1)"
+          echo "expected=$expected"
+          echo "actual=$actual"
+          if [ "$expected" != "$actual" ]; then
+            echo "::error::declared sha256 does not match the fetched artifact"
+            exit 1
+          fi
+
+      - name: Upload validation artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-validate
+          path: |
+            validate.json
+            plan.json
+          if-no-files-found: ignore
+
+      - name: Summarize
+        id: summarize
+        if: always()
+        shell: bash
+        run: |
+          outcome_to_check() {
+            case "$1" in
+              success) echo pass ;;
+              failure) echo fail ;;
+              skipped) echo skip ;;
+              *) echo error ;;
+            esac
+          }
+          validate="$(outcome_to_check "${{ steps.validate.outcome }}")"
+          plan="$(outcome_to_check "${{ steps.plan.outcome }}")"
+          hash="$(outcome_to_check "${{ steps.hash.outcome }}")"
+          echo "validate=$validate plan=$plan artifact_hash=$hash"
+          if [ "$validate" = pass ] && [ "$plan" = pass ] && [ "$hash" = pass ]; then
+            echo "result=pass" >> "$GITHUB_OUTPUT"
+          else
+            echo "result=fail" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fail if any check did not pass
+        if: steps.summarize.outputs.result != 'pass'
+        run: exit 1
+
+  static-scan:
+    name: Static scans
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ShellCheck
+        uses: ludeeus/action-shellcheck@2.0.0
+        with:
+          scandir: .
+          ignore_paths: .nostrhost-yunohost
+
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          exit-code: '1'
+          severity: 'CRITICAL,HIGH'
+
+      - name: GitHub Actions workflow scan
+        run: docker run --rm -v "$GITHUB_WORKSPACE:/repo" --workdir /repo rhysd/actionlint:1.7.12 -color

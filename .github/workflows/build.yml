@@ -1,0 +1,87 @@
+name: Build and publish artifact
+
+# Deliberately manual (workflow_dispatch only): a version bump is a
+# reviewed, deliberate act, never an auto-publish of an unreviewed upstream
+# release into the catalog. Run this, then copy the printed sha256 (and the
+# release asset URL) into package.toml's [source.main] and bump [app].version
+# in the same commit/PR.
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_ref:
+        description: Pinned upstream tag or commit to build (never a branch)
+        required: true
+      package_version:
+        description: "Version to publish this artifact as (defaults to upstream_ref with a leading v stripped)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+env:
+  # TODO: set these once per package repo (or move to repo Variables).
+  UPSTREAM_REPO: https://github.com/TODO-org/TODO-repo.git
+  PACKAGE_ID: TODO-package-id
+  NODE_VERSION: "22"
+  OUTPUT_DIR: dist
+  # Optional, space-separated KEY=VALUE build-time env (e.g. Vite VITE_* vars).
+  BUILD_ENV: ""
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Build artifact
+        id: build
+        env:
+          UPSTREAM_REF: ${{ inputs.upstream_ref }}
+          OUTPUT_DIR: ${{ env.OUTPUT_DIR }}
+          BUILD_ENV: ${{ env.BUILD_ENV }}
+        run: |
+          set -euo pipefail
+          ./build.sh
+          cat build-result.env >> "$GITHUB_OUTPUT"
+
+      - name: Determine release version
+        id: version
+        run: |
+          version="${{ inputs.package_version }}"
+          if [ -z "$version" ]; then
+            version="${{ steps.build.outputs.version }}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release with artifact
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: v${{ steps.version.outputs.version }}
+          files: ${{ steps.build.outputs.artifact }}
+          body: |
+            Built from ${{ env.UPSTREAM_REPO }}@${{ inputs.upstream_ref }}.
+
+            sha256: `${{ steps.build.outputs.sha256 }}`
+
+            Copy the URL of the attached asset and this sha256 into
+            `package.toml`'s `[source.main]`, and bump `[app].version` to
+            `${{ steps.version.outputs.version }}`.
+
+      - name: Summary
+        run: |
+          {
+            echo "### Build result"
+            echo ""
+            echo "- artifact: \`${{ steps.build.outputs.artifact }}\`"
+            echo "- sha256: \`${{ steps.build.outputs.sha256 }}\`"
+            echo "- release: v${{ steps.version.outputs.version }}"
+            echo ""
+            echo "Next: update \`package.toml\` [source.main] url/sha256 and [app].version, then open a PR."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,61 @@
+# Native NostrHost package manifest (`_nh` format).
+#
+# This is a template for a build-from-source static SPA (Vite/webpack/etc.)
+# packaged as a scriptless native NostrHost app. Fill in every TODO, then
+# validate with:
+#
+#   nostrhost-package validate package.toml --json
+#   nostrhost-package plan package.toml --json
+#
+# See docs/new-package.md in this repo for the full walkthrough, and
+# schema/package.schema.json in https://github.com/imattau/nostrhost for the
+# authoritative field reference.
+#
+# Native packages never run a build on the install target (see
+# docs/security-model.md). `source.main` MUST point at an already-built
+# artifact — the tarball produced by build.sh / .github/workflows/build.yml
+# and published as a GitHub Release asset of THIS repo, pinned by SHA-256.
+
+[app]
+id = "TODO-package-id"       # lowercase, stable across releases
+version = "0.1.0"            # bump alongside a new build.yml release
+
+[source.main]
+# The pinned build artifact for this exact version — NOT the upstream
+# project's own source tarball. Produced by `build.sh`; see
+# .github/workflows/build.yml. Update both fields together on every version
+# bump (`build.yml`'s summary prints the sha256 to copy here).
+url = "https://github.com/TODO-org/TODO-repo/releases/download/vTODO/TODO-package-id-vTODO.tar.gz"
+sha256 = "0000000000000000000000000000000000000000000000000000000000000000"
+extract = true
+destination = "/var/www/TODO-package-id"
+
+[directories.install]
+path = "/var/www/TODO-package-id"
+mode = 0o755
+
+[web]
+domain = "TODO.example"          # overridden per-install by the platform
+path = "/TODO-package-id/"
+file_root = "/var/www/TODO-package-id"
+auth = "nostrhost"
+https = "automatic"
+
+[permissions.main]
+# Relative to [web].path; "/" -> domain + web.path
+url = "/"
+allowed = ["all_users"]
+auth_request = true
+
+[health]
+type = "http"
+path = "/TODO-package-id/"
+timeout = 10
+retries = 2
+
+[backup]
+# Stateless build output: nothing user-generated lives under directories.install,
+# so it is not backed up — a restore just re-fetches source.main. Add paths
+# here only if the app writes runtime data outside the install dir.
+paths = []
+database = false

@@ -99,6 +99,32 @@ This needs a `nostrhost-yunohost` build at commit `f82a4d5e3` or later on
 the `nostrhost` branch — an older CLI has no `--domain`/`--path` flags at
 all.
 
+## If the app returns a bare "nostrhost domain ..." stub after install
+
+That means Caddy lost the route, not that the package is broken. Native app
+web routes exist only in Caddy's admin-API-pushed runtime config, never on
+disk — so **any** Caddy restart (a package upgrade that ships
+`caddy.service` and gets restarted by debhelper, a manual `systemctl
+restart caddy`, a crash-restart, a reboot) or **any** Caddy reload (`caddy
+reload --config X` fully replaces the active config, same as a restart —
+regenconf's `15-caddy` hook runs this on any base-Caddyfile change) drops
+every installed native app back to the bare per-domain stub until
+something replays its route.
+
+`nostrhost-yunohost` `12.1.41.47`+ fixes the restart case
+(`nostrhost-web-reconcile.service`, triggered by `caddy.service`'s own
+`Wants=`) and `12.1.41.49`+ also fixes the reload case (`15-caddy`'s
+`do_post_regen` triggers the same reconcile job after its `caddy reload`).
+On an older core build, or if it's still happening after `12.1.41.49`,
+recover with:
+
+```sh
+nostrhost app reconcile-routes --output-as json
+```
+
+which re-applies every installed native app's route (best-effort,
+per-app — idempotent, safe to run any time, not just after an incident).
+
 ## Behavior note: build-time config vs. install-time config
 
 A classic `_ynh` package (`scripts/install`) can inject an admin's

@@ -35,7 +35,10 @@ An AI coding agent working in a repo built from this template should read
 
 1. Use this repo as a GitHub template (or copy it) into `<app>_nh`.
 2. Fill in every `TODO` in `package.toml` and `.github/workflows/build.yml`
-   (upstream repo URL, package id, domain, paths, build env vars).
+   (upstream repo URL, package id, path, build env vars). Leave
+   `[web].domain` unset — it's supplied at install time (`nostrhost app
+   install <id> --source . --domain <domain>`), not hardcoded here; see
+   `docs/new-package.md`'s "Install-time domain/path".
 3. Run `build.yml` with the pinned upstream tag you want to package.
 4. Copy the printed release URL + SHA-256 into `package.toml`'s
    `[source.main]`, bump `[app].version` to match, commit, open a PR.

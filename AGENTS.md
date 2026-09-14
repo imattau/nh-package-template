@@ -34,6 +34,8 @@ built** artifact (this repo's own GitHub Release asset, produced by
    `[permissions.main]`, `[health].path`. Keep them consistent (same app id
    threaded through every path). Leave `[source.main]`'s url/sha256 as
    placeholders until step 4 — they get real values only after a real build.
+   Do **not** add a `[web].domain` key — see "Install-time domain/path"
+   below.
 
 2. **Fill in `.github/workflows/build.yml`'s `env:` block:**
    `UPSTREAM_REPO` (git URL), `PACKAGE_ID` (matches `[app].id`),
@@ -80,6 +82,23 @@ built** artifact (this repo's own GitHub Release asset, produced by
    (new build command, new output directory, new required env var) — in
    which case update step 2's env block first.
 
+## Install-time domain/path
+
+`[web].domain` is intentionally absent from `package.toml` — it's an
+install-time parameter, not part of the package's signed content:
+
+```sh
+nostrhost app install <id> --source . --domain example.com [--path /app/]
+```
+
+`nostrhost app upgrade` defaults `--domain`/`--path` to whatever is
+*currently installed* rather than re-reading `package.toml`'s own values,
+so a routine upgrade never silently moves a live app back to a placeholder.
+A deliberate move uses `nostrhost app change-url <id> --domain … --path …`.
+This needs a `nostrhost-yunohost` build at commit `f82a4d5e3` or later on
+the `nostrhost` branch — an older CLI has no `--domain`/`--path` flags at
+all.
+
 ## Behavior note: build-time config vs. install-time config
 
 A classic `_ynh` package (`scripts/install`) can inject an admin's
@@ -99,7 +118,10 @@ it done.
   one hard rule" above.
 - Don't skip `security.yml`'s hash-verification step or point `[source.main]`
   at a mutable URL (a branch tarball, a "latest" redirect, etc.).
-- Don't copy `_ynh`-style install-time settings (domain, path, admin
-  questions) into `package.toml` as `[settings]` fields without checking
-  whether the underlying value is actually meant to vary per install versus
-  per build — see the behavior note above.
+- Don't hardcode a `[web].domain` in `package.toml` — it's supplied via
+  `--domain` at install time (see "Install-time domain/path" above), not a
+  manifest field.
+- Don't copy other `_ynh`-style install-time settings (admin questions
+  beyond domain/path) into `package.toml` as `[settings]` fields without
+  checking whether the underlying value is actually meant to vary per
+  install versus per build — see the behavior note above.

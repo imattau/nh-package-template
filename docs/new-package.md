@@ -18,6 +18,9 @@ Replace every `TODO`:
 - `[backup].paths` — only add paths if the app writes runtime data outside
   the install dir (most static SPAs don't).
 
+Leave `[web]` with **no `domain` key** — see "Install-time domain/path"
+below for why that's deliberate, not an oversight.
+
 Validate the shape before touching CI:
 
 ```sh
@@ -61,6 +64,30 @@ re-verification, Gitleaks, Trivy, actionlint, ShellCheck).
 Repeat steps 4-5 with the new upstream tag. Nothing else in the repo needs
 to change unless upstream's build process itself changed (new build
 command, new output directory, new required env var).
+
+## Install-time domain/path
+
+`[web].domain` is deliberately absent from `package.toml`: it's an
+install-time parameter (which host this goes on), not part of the package's
+own signed content, so it's supplied at install time instead of hardcoded
+into the manifest:
+
+```sh
+nostrhost app install <id> --source . --domain example.com
+# path defaults to package.toml's [web].path; override it too if needed:
+nostrhost app install <id> --source . --domain example.com --path /app/
+```
+
+`nostrhost app upgrade` defaults `--domain`/`--path` to whatever is
+*currently installed*, not to `package.toml`'s own values, so a routine
+upgrade never silently moves a live app. To deliberately move an already
+-installed app, use `nostrhost app change-url <id> --domain … --path …`
+instead of passing `--domain`/`--path` on an upgrade.
+
+(This requires a `nostrhost-yunohost` build that includes the
+`--domain`/`--path` install/upgrade flags — commit `f82a4d5e3` or later on
+the `nostrhost` branch. An older build has no way to supply a domain at
+all, which was the actual gap this fixed.)
 
 ## Behavior note: build-time config vs. install-time config
 

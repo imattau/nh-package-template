@@ -37,9 +37,9 @@ mode = 0o755
 [web]
 # No domain here on purpose: [web].domain is an install-time parameter, not
 # part of the package's signed content — supply it with
-# `nostrhost app install <id> --source . --domain <domain>`, not by editing
-# this file. path defaults to a reasonable mount point below but can be
-# overridden the same way with `--path` (installer keeps health.path in
+# `nostrhost app install-npk <artifact.npk> --domain <domain>`, not by
+# editing this file. path defaults to a reasonable mount point below but can
+# be overridden the same way with `--path` (installer keeps health.path in
 # sync automatically). See docs/new-package.md / AGENTS.md.
 path = "/TODO-package-id/"
 file_root = "/var/www/TODO-package-id"

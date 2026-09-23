@@ -36,20 +36,31 @@ An AI coding agent working in a repo built from this template should read
 1. Use this repo as a GitHub template (or copy it) into `<app>_nh`.
 2. Fill in every `TODO` in `package.toml` and `.github/workflows/build.yml`
    (upstream repo URL, package id, path, build env vars). Leave
-   `[web].domain` unset — it's supplied at install time (`nostrhost app
-   install <id> --source . --domain <domain>`), not hardcoded here; see
-   `docs/new-package.md`'s "Install-time domain/path".
+   `[web].domain` unset — it's supplied at install time
+   (`nostrhost app install-npk <artifact.npk> --domain <domain>`), not
+   hardcoded here; see `docs/new-package.md`'s "Install-time domain/path".
 3. Run `build.yml` with the pinned upstream tag you want to package.
 4. Copy the printed release URL + SHA-256 into `package.toml`'s
    `[source.main]`, bump `[app].version` to match, commit, open a PR.
 5. `security.yml` runs on the PR and must pass before merging.
-6. To ship a new upstream version later: repeat from step 3 with the new tag.
+6. Wrap the manifest into a signed `.npk` with
+   [npack](https://github.com/imattau/npack) and install/upgrade it — see
+   `docs/new-package.md`'s "Package and install/upgrade with npack".
+7. To ship a new upstream version later: repeat from step 3 with the new tag.
 
 ## What this does *not* do
 
 This template does not publish to the [nostr-yunohost](https://github.com/imattau/nostr-yunohost)
 catalog — that publisher (`nostr-ynh publish`) only reads classic `manifest.toml`
-`_ynh` packages today. A `_nh` package built from this template is installed
-by pointing NostrHost's native package engine directly at this repo's
-`package.toml` (`nostrhost package plan` / `nostrhost package reconcile`),
-not through the Nostr-signed `_ynh` catalog.
+`_ynh` packages today. A `_nh` package built from this template is
+distributed as a signed [npack](https://github.com/imattau/npack) `.npk`
+(`nostrhost app install-npk` / `app upgrade-npk`), not through the
+Nostr-signed `_ynh` catalog — and, as of NostrHost's git-repository
+catalogue retirement, not by pointing the engine directly at a
+`package.toml` on disk either; that path (`nostrhost app install --source`,
+`nostrhost package plan`/`package reconcile` from a bare manifest) no
+longer exists. `.npk` distribution doesn't require actually publishing to
+Nostr relays, either: a locally-built `.npk` installs straight from disk
+(see step 6), so a real publisher key and `npack publish` are only needed
+if you want this package to be discoverable/resolvable by others, not for
+the template's own build → install loop to work.

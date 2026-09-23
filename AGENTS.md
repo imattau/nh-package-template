@@ -77,27 +77,53 @@ built** artifact (this repo's own GitHub Release asset, produced by
    defect, not noise to route around — don't add `continue-on-error` or
    weaken a check to make it pass.
 
-7. **Shipping a later upstream version:** repeat steps 4–5 with the new
-   ref. Nothing else changes unless upstream's build process itself changed
-   (new build command, new output directory, new required env var) — in
-   which case update step 2's env block first.
+7. **Package it as a signed `.npk` and install/upgrade with
+   [npack](https://github.com/imattau/npack).** NostrHost no longer installs
+   a package by pointing the engine straight at `package.toml` on disk
+   (`nostrhost app install --source` was retired); it installs a signed
+   `.npk` instead. npack signs/transports the manifest declaration, not the
+   payload bytes, so `[source.main]`'s own fetch from step 5 keeps working
+   unchanged:
+
+   ```sh
+   nostrhost-package build-npk package.toml \
+     --output my-app-0.1.0.npk \
+     --publisher <npub-or-hex>
+   nostrhost app install-npk ./my-app-0.1.0.npk --domain example.com
+   ```
+
+   No `--payload` flag needed. If `[app].version` isn't SemVer, pass
+   `--version` explicitly. Optionally add `--repo 30617:<pubkey>:<identifier>`
+   (NIP-34, not a plain URL — see
+   [npack#16](https://github.com/imattau/npack/issues/16)) and `--commit
+   <hex>` if this release should be eligible for CI-attestation trust
+   policies. Any syntactically valid `--publisher` works for local
+   iteration (the `.npk` never has to be published anywhere); for a real
+   release, either attach it to this repo's GitHub Release the same way
+   `[source.main]`'s tarball already is, or `npack publish` it to relays
+   under a real publisher key.
+
+8. **Shipping a later upstream version:** repeat steps 4–7 with the new
+   ref (new build, new `.npk` — keep `--publisher` the same key across
+   versions so an upgrade resolves as the same app). Nothing else changes
+   unless upstream's build process itself changed (new build command, new
+   output directory, new required env var) — in which case update step 2's
+   env block first.
 
 ## Install-time domain/path
 
 `[web].domain` is intentionally absent from `package.toml` — it's an
-install-time parameter, not part of the package's signed content:
+install-time parameter, not part of the package's signed content, supplied
+on `install-npk`/`upgrade-npk` (step 7 above):
 
 ```sh
-nostrhost app install <id> --source . --domain example.com [--path /app/]
+nostrhost app install-npk ./my-app-0.1.0.npk --domain example.com [--path /app/]
 ```
 
-`nostrhost app upgrade` defaults `--domain`/`--path` to whatever is
+`nostrhost app upgrade-npk` defaults `--domain`/`--path` to whatever is
 *currently installed* rather than re-reading `package.toml`'s own values,
 so a routine upgrade never silently moves a live app back to a placeholder.
 A deliberate move uses `nostrhost app change-url <id> --domain … --path …`.
-This needs a `nostrhost-yunohost` build at commit `f82a4d5e3` or later on
-the `nostrhost` branch — an older CLI has no `--domain`/`--path` flags at
-all.
 
 ## If the app returns a bare "nostrhost domain ..." stub after install
 
@@ -131,9 +157,19 @@ A classic `_ynh` package (`scripts/install`) can inject an admin's
 install-time answers as build env vars. This scriptless format can't — every
 install of a given package *version* gets the same build output. Anything
 env-dependent must be fixed in `build.yml`'s `BUILD_ENV` at build time. If an
-app genuinely needs per-install configuration, that's `package.toml`'s
-`[settings]` resource (rendered into a managed `[config]` file at apply
-time) — not something to fake by baking a default into the build and calling
+app genuinely needs per-install configuration, NostrHost has two resources
+for it, for two different moments:
+
+- **Pre-install** (needed to plan resources correctly, before anything is
+  applied — an API key, a tier selection): `[install_inputs.*]` in
+  `package.toml`, supplied with `--set id=value` on
+  `install-npk`/`upgrade-npk` (`--domain`/`--path` above are sugar for this
+  same mechanism's built-in `web.domain`/`web.path` bind targets).
+- **Post-install** (changeable later from the app's config panel):
+  `package.toml`'s `[settings]` resource, rendered into a managed
+  `[config]` file at apply time.
+
+Neither is something to fake by baking a default into the build and calling
 it done.
 
 ## Don't
@@ -150,4 +186,5 @@ it done.
 - Don't copy other `_ynh`-style install-time settings (admin questions
   beyond domain/path) into `package.toml` as `[settings]` fields without
   checking whether the underlying value is actually meant to vary per
-  install versus per build — see the behavior note above.
+  install (`[install_inputs]`) versus per build versus after install
+  (`[settings]`) — see the behavior note above.

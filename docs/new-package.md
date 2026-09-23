@@ -21,6 +21,11 @@ Replace every `TODO`:
 Leave `[web]` with **no `domain` key** — see "Install-time domain/path"
 below for why that's deliberate, not an oversight.
 
+For a client-routed static SPA, keep `[web].spa_fallback` at its default
+(true for `file_root` apps) so shared deep links survive a refresh; set it
+to `false` only for a genuinely static site that wants real 404s. (Do not
+add a `[service]` resource just to paper over SPA routing.)
+
 Validate the shape before touching CI:
 
 ```sh

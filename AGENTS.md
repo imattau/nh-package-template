@@ -136,6 +136,15 @@ app genuinely needs per-install configuration, that's `package.toml`'s
 time) — not something to fake by baking a default into the build and calling
 it done.
 
+## SPA fallback
+
+Static SPAs (Vite/webpack output) need client-side routes to fall back to
+`index.html`, otherwise a shared deep link 404s on refresh. Native
+`[web].file_root` apps get this by default (`[web].spa_fallback`, default
+true for `file_root` apps); set `spa_fallback = false` only for a genuinely
+static site that wants real 404s. Do not add a `[service]` resource just to
+paper over SPA routing.
+
 ## Don't
 
 - Don't invent a SHA-256, a URL, or a version number. If you don't have a

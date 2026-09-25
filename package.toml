@@ -17,7 +17,7 @@
 # and published as a GitHub Release asset of THIS repo, pinned by SHA-256.
 
 [app]
-id = "TODO-package-id"       # lowercase, stable across releases
+id = "todo-package-id"       # lowercase, stable across releases
 version = "0.1.0"            # bump alongside a new build.yml release
 
 [source.main]
@@ -25,24 +25,24 @@ version = "0.1.0"            # bump alongside a new build.yml release
 # project's own source tarball. Produced by `build.sh`; see
 # .github/workflows/build.yml. Update both fields together on every version
 # bump (`build.yml`'s summary prints the sha256 to copy here).
-url = "https://github.com/TODO-org/TODO-repo/releases/download/vTODO/TODO-package-id-vTODO.tar.gz"
+url = "https://github.com/TODO-org/TODO-repo/releases/download/vTODO/todo-package-id-vTODO.tar.gz"
 sha256 = "0000000000000000000000000000000000000000000000000000000000000000"
 extract = true
-destination = "/var/www/TODO-package-id"
+destination = "/var/www/todo-package-id"
 
 [directories.install]
-path = "/var/www/TODO-package-id"
+path = "/var/www/todo-package-id"
 mode = 0o755
 
 [web]
 # No domain here on purpose: [web].domain is an install-time parameter, not
 # part of the package's signed content — supply it with
-# `nostrhost app install <id> --source . --domain <domain>`, not by editing
-# this file. path defaults to a reasonable mount point below but can be
-# overridden the same way with `--path` (installer keeps health.path in
+# `nostrhost app install-npk <artifact.npk> --domain <domain>`, not by
+# editing this file. path defaults to a reasonable mount point below but can
+# be overridden the same way with `--path` (installer keeps health.path in
 # sync automatically). See docs/new-package.md / AGENTS.md.
-path = "/TODO-package-id/"
-file_root = "/var/www/TODO-package-id"
+path = "/todo-package-id/"
+file_root = "/var/www/todo-package-id"
 auth = "nostrhost"
 https = "automatic"
 
@@ -54,7 +54,7 @@ auth_request = true
 
 [health]
 type = "http"
-path = "/TODO-package-id/"
+path = "/todo-package-id/"
 timeout = 10
 retries = 2
 

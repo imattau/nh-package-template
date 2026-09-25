@@ -140,6 +140,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Gitleaks diffs each scanned commit against its parent
+          # (`<sha>^..<sha>`); a shallow (default depth-1) checkout doesn't
+          # have that parent available and fails with "unknown revision".
+          fetch-depth: 0
 
       - name: ShellCheck
         uses: ludeeus/action-shellcheck@2.0.0
